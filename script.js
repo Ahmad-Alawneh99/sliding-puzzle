@@ -136,3 +136,38 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	});
 });
+
+// Tree definition
+
+class Node {
+    constructor(parentNode, gridState) {
+        this.parentNode = parentNode;
+        this.gridState = gridState;
+
+        this.children = [];
+    }
+}
+
+class Tree {
+    constructor(root) {
+        this.root = root;
+    }
+}
+
+// Algorithm to solve the puzzle
+const getShortestSteps = () => {
+
+
+    return [1, 2, 3, 4];
+}
+
+// @TODO FIX
+const solve = (steps) => {
+    steps.forEach((step) => {
+        setTimeout(() => {
+			document.querySelector(`[data-sliding="${step}"]`).click();
+		}, 500);
+    });
+}
+
+solve([1,2,3,4,5,6,7,8])
