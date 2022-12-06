@@ -5,7 +5,9 @@ let size = 3;
 let matrix = [];
 let numbers = [];
 
-const createMatrix = () => {
+let states = [];
+
+const createMatrix = (matrix) => {
 	let pointer = 0;
 	for (let row = 0; row < size; row++) {
 		matrix[row] = [];
@@ -15,7 +17,7 @@ const createMatrix = () => {
 	}
 };
 
-const createGrid = () => {
+const createGrid = (matrix) => {
 	slidingGrid.innerHTML = '';
 	slidingGrid.dataset.grid = size * size;
 
@@ -43,17 +45,17 @@ const createNumbers = () => {
 	numbers.sort(() => Math.random() - 0.5);
 };
 
-const shuffle = () => {
+const shuffle = (matrix) => {
 	size = +sizeSelect.value;
 	moves = 0;
 
 	createNumbers();
 	updateMoves();
-	createMatrix();
-	createGrid();
+	createMatrix(matrix);
+	createGrid(matrix);
 };
 
-const searchNumber = (slidingItem) => {
+const searchNumber = (matrix, slidingItem) => {
 	for (let i = 0; i < size; i++) {
 		for (let j = 0; j < size; j++) {
 			if (slidingItem === matrix[i][j]) {
@@ -63,7 +65,7 @@ const searchNumber = (slidingItem) => {
 	}
 };
 
-const updateMatrix = (row, column) => {
+const updateMatrix = (matrix, row, column, shouldRender) => {
 	let checkRight;
 	let checkLeft;
 	let checkTop;
@@ -100,16 +102,19 @@ const updateMatrix = (row, column) => {
 	if (checkRight || checkLeft || checkBottom || checkTop) {
 		matrix[row][column] = 0;
 		moves++;
-		updateMoves();
-		createGrid();
+
+		if (shouldRender) {
+			updateMoves();
+			createGrid(matrix);
+		}
 	}
 };
 
-const startSliding = (slidingItem) => {
+const startSliding = (matrix, slidingItem) => {
 	if (slidingItem === 0) return;
 
-	const [row, column] = searchNumber(slidingItem);
-	updateMatrix(row, column);
+	const [row, column] = searchNumber(matrix, slidingItem);
+	updateMatrix(matrix, row, column, true);
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -118,56 +123,168 @@ document.addEventListener('DOMContentLoaded', () => {
 	resetButton = document.querySelector('[data-shuffle]');
 	movesElement = document.querySelector('[data-moves]');
 
-	shuffle();
+	shuffle(matrix);
 
 	sizeSelect.addEventListener('change', () => {
-		shuffle();
+		shuffle(matrix);
 	});
 
 	resetButton.addEventListener('click', () => {
-		shuffle();
+		shuffle(matrix);
 	});
 
 	slidingGrid.addEventListener('click', (event) => {
 		const slidingItem = event.target.dataset.sliding;
 
 		if (slidingItem) {
-			startSliding(+slidingItem);
+			startSliding(matrix, +slidingItem);
 		}
+	});
+
+	document.querySelector('.solve').addEventListener('click', () => {
+		const path = getShortestSteps(matrix);
+		console.log(path);
+		solve(path);
 	});
 });
 
 // Tree definition
 
 class Node {
-    constructor(parentNode, gridState) {
-        this.parentNode = parentNode;
-        this.gridState = gridState;
+	constructor(parentNode, gridState, currentMove) {
+		this.parentNode = parentNode;
+		this.gridState = gridState;
+		this.currentMove = currentMove;
+	}
+};
 
-        this.children = [];
-    }
-}
+const getMoveableElements = (matrix, excludeElement) => {
+	let zeroRow = 0;
+	let zeroColumn = 0;
+	const moveableElements = [];
+	for (let i = 0; i < matrix.length; i ++) {
+		let zeroFound = false;
+		for (let j = 0; j < matrix[i].length; j ++) {
+			if (matrix[i][j] === 0) {
+				zeroRow = i;
+				zeroColumn = j;
+				zeroFound = true;
+				break;
+			}
 
-class Tree {
-    constructor(root) {
-        this.root = root;
-    }
+			if (zeroFound) {
+				break;
+			}
+		}
+	}
+
+	if (zeroColumn + 1 < size && matrix[zeroRow][zeroColumn + 1] !== excludeElement) {
+		moveableElements.push({
+			row: zeroRow,
+			column: zeroColumn + 1,
+		});
+	}
+
+	if (zeroColumn - 1 >= 0 && matrix[zeroRow][zeroColumn - 1] !== excludeElement) {
+		moveableElements.push({
+			row: zeroRow,
+			column: zeroColumn - 1,
+		});
+	}
+
+	if (zeroRow - 1 >= 0 && matrix[zeroRow - 1][zeroColumn] !== excludeElement) {
+		moveableElements.push({
+			row: zeroRow - 1,
+			column: zeroColumn,
+		});
+	}
+
+	if (zeroRow + 1 < size && matrix[zeroRow + 1][zeroColumn] !== excludeElement) {
+		moveableElements.push({
+			row: zeroRow + 1,
+			column: zeroColumn,
+		});
+	}
+
+	return moveableElements;
+};
+
+const getPathToRoot = (node) => {
+	const path = [];
+	let iterator = node;
+	while (iterator != null) {
+		path.unshift(iterator.currentMove);
+		iterator = iterator.parentNode;
+	}
+
+	return path;
+};
+
+const stateExists = (matrix) => { // @TODO Investigate the logic here
+	let isDuplicate = false;
+	for (let j = 0; j < states.length; j ++) {
+		let isEqual = true;
+		const flattenedMatrix = [].concat(...matrix);
+
+		for(let i = 0; i < flattenedMatrix.length; i ++) {
+			if (flattenedMatrix[i] !== states[j][i]) {
+				isEqual = false;
+				break;
+			}
+		}
+
+		if (isEqual) {
+			isDuplicate = true;
+			break;
+		}
+	}
+
+	return isDuplicate;
 }
 
 // Algorithm to solve the puzzle
-const getShortestSteps = () => {
+const getShortestSteps = (matrix) => {
+	const node = new Node(null, matrix, null);
+	const queue = [node];
 
+	while(queue.length) {
+		const currentNode = queue.shift();
+		if (isComplete(currentNode.gridState)) {
+			return getPathToRoot(currentNode);
+		}
+		states.push([].concat(...currentNode.gridState));
 
-    return [1, 2, 3, 4];
-}
+		const moveableElements = getMoveableElements(currentNode.gridState, currentNode.currentMove);
+		moveableElements.forEach((element) => {
+			const copyMatrix = structuredClone(currentNode.gridState);
+			updateMatrix(copyMatrix, element.row, element.column);
+			if (!stateExists(copyMatrix)) {
+				console.log('here');
+				queue.push(new Node(currentNode, copyMatrix, currentNode.gridState[element.row][element.column]));
+			}
+		});
+	}
 
-// @TODO FIX
+};
+
 const solve = (steps) => {
-    steps.forEach((step) => {
-        setTimeout(() => {
-			document.querySelector(`[data-sliding="${step}"]`).click();
-		}, 500);
-    });
-}
+	let index = 0;
+	const playingInterval = setInterval(() => {
+		document.querySelector(`[data-sliding="${steps[index++]}"]`).click();
+		if (index === steps.length) {
+			clearInterval(playingInterval);
+		}
+	}, 500);
+};
 
-solve([1,2,3,4,5,6,7,8])
+const isComplete = (matrix) => {
+	const flattenedMatrix = [].concat(...matrix);
+	let isComplete = true;
+	flattenedMatrix.forEach((element, index) => {
+		if (element - 1 !== index && index != flattenedMatrix.length - 1) {
+			isComplete = false;
+		}
+	});
+
+	return isComplete;
+};
