@@ -40,9 +40,10 @@ const createNumbers = () => {
 	for (let index = 0; index < size * size; index++) {
 		numbers.push(index);
 	}
+	numbers = [1, 2, 3, 0, 4, 6, 7, 5, 8];
 
 	// shuffle numbers
-	numbers.sort(() => Math.random() - 0.5);
+	// numbers.sort(() => Math.random() - 0.5);
 };
 
 const shuffle = (matrix) => {
@@ -149,12 +150,28 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Tree definition
+const goalState = '123456780';
 
 class Node {
 	constructor(parentNode, gridState, currentMove) {
 		this.parentNode = parentNode;
 		this.gridState = gridState;
 		this.currentMove = currentMove;
+		this.moves = this.parentNode?.moves + 1 || 0;
+	}
+
+
+	getScore() {
+		let misplacedCount = 0;
+		const flattenedMatrix = [].concat(...this.gridState).join('');
+
+		for (let i = 0; i < goalState.length; i ++) {
+			if (flattenedMatrix[i] !== goalState[i] && flattenedMatrix[i] != '0') {
+				misplacedCount++;
+			}
+		}
+
+		return this.moves + misplacedCount;
 	}
 };
 
@@ -220,27 +237,19 @@ const getPathToRoot = (node) => {
 	return path;
 };
 
-const stateExists = (matrix) => { // @TODO Investigate the logic here
+const stateExists = (matrix) => {
 	let isDuplicate = false;
-	for (let j = 0; j < states.length; j ++) {
-		let isEqual = true;
-		const flattenedMatrix = [].concat(...matrix);
+	for (let i = 0; i < states.length; i ++) {
+		const flattenedMatrix = [].concat(...matrix).join('');
 
-		for(let i = 0; i < flattenedMatrix.length; i ++) {
-			if (flattenedMatrix[i] !== states[j][i]) {
-				isEqual = false;
-				break;
-			}
-		}
-
-		if (isEqual) {
+		if (flattenedMatrix === states[i]) {
 			isDuplicate = true;
 			break;
 		}
 	}
 
 	return isDuplicate;
-}
+};
 
 // Algorithm to solve the puzzle
 const getShortestSteps = (matrix) => {
@@ -252,39 +261,34 @@ const getShortestSteps = (matrix) => {
 		if (isComplete(currentNode.gridState)) {
 			return getPathToRoot(currentNode);
 		}
-		states.push([].concat(...currentNode.gridState));
-
+		states.push([].concat(...currentNode.gridState).join(''));
+		console.log(currentNode.getScore());
 		const moveableElements = getMoveableElements(currentNode.gridState, currentNode.currentMove);
+
 		moveableElements.forEach((element) => {
 			const copyMatrix = structuredClone(currentNode.gridState);
 			updateMatrix(copyMatrix, element.row, element.column);
 			if (!stateExists(copyMatrix)) {
-				console.log('here');
 				queue.push(new Node(currentNode, copyMatrix, currentNode.gridState[element.row][element.column]));
 			}
 		});
+		queue.sort((a, b) => a.getScore() - b.getScore());
 	}
+};
 
+const isComplete = (matrix) => {
+	const flattenedMatrix = [].concat(...matrix).join('');
+	console.log(flattenedMatrix);
+
+	return flattenedMatrix === '123456780';
 };
 
 const solve = (steps) => {
 	let index = 0;
 	const playingInterval = setInterval(() => {
-		document.querySelector(`[data-sliding="${steps[index++]}"]`).click();
+		document.querySelector(`[data-sliding="${steps[index++]}"]`)?.click();
 		if (index === steps.length) {
 			clearInterval(playingInterval);
 		}
 	}, 500);
-};
-
-const isComplete = (matrix) => {
-	const flattenedMatrix = [].concat(...matrix);
-	let isComplete = true;
-	flattenedMatrix.forEach((element, index) => {
-		if (element - 1 !== index && index != flattenedMatrix.length - 1) {
-			isComplete = false;
-		}
-	});
-
-	return isComplete;
 };
